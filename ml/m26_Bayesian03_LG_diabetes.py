@@ -1,0 +1,90 @@
+import numpy as np
+import pandas as pd
+from bayes_opt import BayesianOptimization
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.model_selection import train_test_split, KFold, cross_val_score
+from sklearn.metrics import r2_score
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+from lightgbm import LGBMRegressor, early_stopping
+import time
+import joblib
+import warnings
+warnings.filterwarnings('ignore')
+import random
+
+seed = 222
+random.seed(seed)
+np.random.seed(seed)
+
+#1. 데이터
+x, y = load_diabetes(return_X_y=True)
+
+x_train, x_test, y_train, y_test = train_test_split(
+    x, y, test_size=0.2, random_state=55
+)
+
+beyesian_params = {
+    'n_estimators' : (100, 500),
+    'learning_rate' : (0.001, 0.5),
+    'max_depth' : (3,10),
+    'num_leaves' : (20, 100),
+    'min_child_samples' : (5, 200),
+    'feature_fraction' : (0.5, 1),
+    'bagging_fraction' : (0.5, 1),
+    'lambda_l2' : (0, 100),  
+    'lambda_l1' : (0, 10),   
+    'min_gain_to_split' : (0, 5), 
+}
+
+#2. 모델
+def Lgb_hamsu(n_estimators, learning_rate, max_depth, num_leaves, min_child_samples, 
+              feature_fraction, bagging_fraction, lambda_l2, lambda_l1, min_gain_to_split):
+    params = {
+        'n_estimators':int(n_estimators),
+        'learning_rate':learning_rate,
+        'max_depth': int(max_depth),
+        'num_leaves': int(num_leaves), # LightGBM의 주요 파라미터
+        'min_child_samples': int(min_child_samples), # int로 변환
+        'feature_fraction': feature_fraction, # colsample_bytree 대신
+        'bagging_fraction': max(min(bagging_fraction,1), 0), # subsample 대신, 범위는 0~1 사이로 확실히
+        'bagging_freq': 1, # bagging_fraction 사용 시 권장
+        'lambda_l2': max(lambda_l2, 0), # reg_lambda 대신
+        'lambda_l1': lambda_l1,       # reg_alpha 대신
+        'min_gain_to_split': min_gain_to_split, # 추가된 파라미터
+        'n_jobs': -1,
+        'random_state': seed, # 재현성 확보
+        'verbose': -1
+    }
+    
+    model = LGBMRegressor(**params)
+    
+    model.fit(
+        x_train, y_train,
+        eval_set=[(x_test, y_test)],
+        eval_metric='rmse', 
+        callbacks=[early_stopping(stopping_rounds=30, verbose=False)], # verbose=False로 콜백 출력 억제
+    )
+    y_pred = model.predict(x_test, num_iteration=model.best_iteration_)
+    result = r2_score(y_test, y_pred)
+    
+    return result
+
+optimizer = BayesianOptimization(
+    f = Lgb_hamsu,                   # 함수는 y_function을 쓴다.
+    pbounds=beyesian_params,
+    random_state=seed,
+)
+
+n_iter = 50
+start = time.time()
+optimizer.maximize(init_points=10,         # 초기 훈련 5번     # 총 25번 돌려라
+                   n_iter=n_iter)         # 반복 훈련 n_iter번
+end = time.time()
+
+print(" 최적의 값 : ", optimizer.max)
+print(n_iter, ' 번 걸린 시간 : ', round(end - start, 2), '초')
+
+
+#   최적의 값 :  {'target': 0.5675696654211722, 'params': {'n_estimators': 188.63266780218743, 'learning_rate': 0.43582925614836726, 'max_depth': 3.269104063434592, 'num_leaves': 92.9725645583129, 'min_child_samples': 36.8889201508307, 'feature_fraction': 0.839747823306114, 'bagging_fraction': 0.5615888737897758, 'lambda_l2': 37.142681360382056, 'lambda_l1': 5.827876713781754, 'min_gain_to_split': 3.5023087435624345}}
+# 50  번 걸린 시간 :  22.72 초
