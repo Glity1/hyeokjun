@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<head>
+    <title>Document</title>
+</head>
+<body>
+    <script>
+        // 변수 선언
+        const date=new Date()
+        const hour=date.getHours()
+
+        // 콘솔 출력
+        console.log('날짜:', date)
+        console.log('시간:', hour)
+
+        // Ctrl+F5 >> Console 창에서 확인 가능
+        // 날짜: Mon Jun 02 2025 15:55:29 GMT+0900 (한국 표준시)
+        // 시간: 15
+
+        // if 조건문
+        if (hour<12){
+            alert('오전입니다.')
+        }
+        if (hour>=12){
+            alert('오후입니다.')
+        }
+    </script>    
+</body>
+</html>

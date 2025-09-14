@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<head>
+    <title>DOM 예제</title>
+<!-- DOM : Document Object Model-->
+</head>
+</head>
+<body>
+    <h1 id='title'>안녕하세요</h1>
+    <button onclick="changeText()">클릭하세요</button>
+
+    <script>
+        function changeText(){  // 자바스크립트의 함수 : function cf)python의 함수 : def
+            const title = document.getElementById('title')
+            title.textContent='반갑습니다.'
+        }
+    </script>
+</body>
+</html>
